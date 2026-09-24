@@ -120,6 +120,7 @@ const workouts = {
 };
 
 const plan = [
+  // WEEK 1
   ["Day 1", "Full Body", "full-body"],
   ["Day 2", "Abs & Core", "abs"],
   ["Day 3", "Chest", "chest"],
@@ -127,8 +128,34 @@ const plan = [
   ["Day 5", "Legs", "legs"],
   ["Day 6", "Arms", "arms"],
   ["Day 7", "Rest", null],
-];
 
+  // WEEK 2
+  ["Day 8", "Back", "back"],
+  ["Day 9", "Glutes", "glutes"],
+  ["Day 10", "Full Body", "full-body"],
+  ["Day 11", "Rest", null],
+  ["Day 12", "Abs & Core", "abs"],
+  ["Day 13", "Chest", "chest"],
+  ["Day 14", "Rest", null],
+
+  // WEEK 3
+  ["Day 15", "Legs", "legs"],
+  ["Day 16", "Arms", "arms"],
+  ["Day 17", "Back", "back"],
+  ["Day 18", "Rest", null],
+  ["Day 19", "Glutes", "glutes"],
+  ["Day 20", "Full Body", "full-body"],
+  ["Day 21", "Rest", null],
+
+  // WEEK 4
+  ["Day 22", "Abs & Core", "abs"],
+  ["Day 23", "Chest", "chest"],
+  ["Day 24", "Legs", "legs"],
+  ["Day 25", "Rest", null],
+  ["Day 26", "Arms", "arms"],
+  ["Day 27", "Full Body", "full-body"],
+  ["Day 28", "Final Full Body Challenge", "full-body"],
+];
 function App() {
   const [user, setUser] = useState(auth.currentUser);
   const [authMode, setAuthMode] = useState("login");
