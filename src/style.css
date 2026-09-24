@@ -4,10 +4,21 @@
   padding: 0;
 }
 
+:root {
+  --green: #22c55e;
+  --dark: #07130d;
+  --dark2: #0d2117;
+  --card: #12291c;
+  --light: #f4fff7;
+  --muted: #a8b8ae;
+  --border: rgba(255, 255, 255, 0.08);
+}
+
 body {
-  font-family: Arial, sans-serif;
-  background: #f5f7fa;
-  color: #222;
+  font-family: Arial, Helvetica, sans-serif;
+  background: var(--dark);
+  color: var(--light);
+  min-height: 100vh;
 }
 
 button,
@@ -19,6 +30,217 @@ button {
   cursor: pointer;
 }
 
-#root {
+/* LOGIN / SIGN UP */
+
+.auth-page {
   min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.25), transparent 35%),
+    radial-gradient(circle at bottom left, rgba(34, 197, 94, 0.12), transparent 35%),
+    var(--dark);
 }
+
+.auth-card {
+  width: 100%;
+  max-width: 430px;
+  padding: 38px 28px;
+  background: rgba(13, 33, 23, 0.95);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.45);
+  text-align: center;
+}
+
+.auth-card h1 {
+  font-size: 32px;
+  margin-bottom: 10px;
+  color: var(--green);
+}
+
+.auth-card > p {
+  color: var(--muted);
+  margin-bottom: 28px;
+}
+
+.auth-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.auth-card input {
+  width: 100%;
+  padding: 15px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  outline: none;
+  background: #091a10;
+  color: white;
+}
+
+.auth-card input:focus {
+  border-color: var(--green);
+}
+
+.auth-card form button {
+  padding: 15px;
+  border: none;
+  border-radius: 12px;
+  background: var(--green);
+  color: #031108;
+  font-weight: bold;
+  margin-top: 5px;
+}
+
+.auth-card form button:hover {
+  transform: translateY(-1px);
+  opacity: 0.9;
+}
+
+.switch-button {
+  margin-top: 20px;
+  border: none;
+  background: transparent;
+  color: var(--green);
+  font-weight: bold;
+}
+
+.error {
+  margin-top: 15px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #ff8c8c;
+}
+
+/* MAIN APP */
+
+.app {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.12), transparent 30%),
+    var(--dark);
+}
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 6%;
+  background: rgba(7, 19, 13, 0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+header h1 {
+  color: var(--green);
+  font-size: 23px;
+}
+
+header button {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 17px;
+  background: #ef4444;
+  color: white;
+  font-weight: bold;
+}
+
+/* CONTENT */
+
+main {
+  width: 100%;
+  max-width: 1200px;
+  margin: auto;
+  padding: 35px 6% 60px;
+}
+
+.welcome {
+  position: relative;
+  overflow: hidden;
+  padding: 35px;
+  margin-bottom: 28px;
+  border-radius: 24px;
+  background:
+    linear-gradient(135deg, rgba(34, 197, 94, 0.22), rgba(13, 33, 23, 0.9)),
+    var(--dark2);
+  border: 1px solid rgba(34, 197, 94, 0.15);
+}
+
+.welcome::after {
+  content: "💪";
+  position: absolute;
+  right: 35px;
+  top: 20px;
+  font-size: 75px;
+  opacity: 0.15;
+}
+
+.welcome h2 {
+  font-size: 32px;
+  margin-bottom: 10px;
+}
+
+.welcome p {
+  color: var(--muted);
+}
+
+/* CARDS */
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.card {
+  padding: 25px;
+  min-height: 210px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  background: linear-gradient(145deg, #12291c, #0c1d13);
+  border: 1px solid var(--border);
+  transition: 0.25s ease;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(34, 197, 94, 0.35);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25);
+}
+
+.card h3 {
+  font-size: 21px;
+  margin-bottom: 13px;
+}
+
+.card p {
+  color: var(--muted);
+  line-height: 1.6;
+  flex: 1;
+}
+
+.card button {
+  margin-top: 20px;
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  background: var(--green);
+  color: #031108;
+  font-weight: bold;
+}
+
+/* MOBILE */
+
+@media (max-width: 850px) {
+  .cards {
+    grid-template-columns: repeat(
