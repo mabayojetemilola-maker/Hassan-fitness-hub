@@ -1,33 +1,168 @@
-import { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
 } from "firebase/auth";
-import { auth } from "./firebase";
-import "./style.css";
+import { auth } from "./firebase.js";
 
-export default function App() {
+const bodyAreas = [
+  { id: "full-body", name: "Full Body", icon: "🏋️", desc: "Complete body workout" },
+  { id: "abs", name: "Abs & Core", icon: "🔥", desc: "Build a stronger core" },
+  { id: "chest", name: "Chest", icon: "🟥", desc: "Chest strength & muscle" },
+  { id: "arms", name: "Arms", icon: "💪", desc: "Biceps & triceps" },
+  { id: "legs", name: "Legs", icon: "🦵", desc: "Powerful lower body" },
+  { id: "back", name: "Back", icon: "🔙", desc: "Build your back" },
+  { id: "shoulders", name: "Shoulders", icon: "🏋️‍♂️", desc: "Strong shoulders" },
+  { id: "glutes", name: "Glutes", icon: "🍑", desc: "Glutes & hips" },
+];
+
+const workouts = {
+  "full-body": {
+    title: "Full Body",
+    subtitle: "Beginner • Home • No Equipment",
+    exercises: [
+      ["Jumping Jacks", "30 sec", "3 rounds"],
+      ["Bodyweight Squats", "15 reps", "3 rounds"],
+      ["Push-ups", "10 reps", "3 rounds"],
+      ["Mountain Climbers", "30 sec", "3 rounds"],
+      ["Reverse Lunges", "10 each leg", "3 rounds"],
+      ["Plank", "30 sec", "3 rounds"],
+      ["Burpees", "8 reps", "3 rounds"],
+    ],
+  },
+
+  abs: {
+    title: "Abs & Core",
+    subtitle: "Core • Beginner • Home",
+    exercises: [
+      ["Crunches", "15 reps", "3 rounds"],
+      ["Leg Raises", "10 reps", "3 rounds"],
+      ["Bicycle Crunches", "20 reps", "3 rounds"],
+      ["Mountain Climbers", "30 sec", "3 rounds"],
+      ["Russian Twists", "20 reps", "3 rounds"],
+      ["Plank", "30 sec", "3 rounds"],
+    ],
+  },
+
+  chest: {
+    title: "Chest",
+    subtitle: "Chest • Beginner • No Equipment",
+    exercises: [
+      ["Push-ups", "10 reps", "3 rounds"],
+      ["Wide Push-ups", "10 reps", "3 rounds"],
+      ["Incline Push-ups", "12 reps", "3 rounds"],
+      ["Diamond Push-ups", "8 reps", "3 rounds"],
+      ["Slow Push-ups", "8 reps", "3 rounds"],
+    ],
+  },
+
+  arms: {
+    title: "Arms",
+    subtitle: "Biceps & Triceps • Home",
+    exercises: [
+      ["Diamond Push-ups", "8 reps", "3 rounds"],
+      ["Tricep Dips", "12 reps", "3 rounds"],
+      ["Backpack Bicep Curls", "12 reps", "3 rounds"],
+      ["Hammer Curls", "12 reps", "3 rounds"],
+      ["Close-Grip Push-ups", "10 reps", "3 rounds"],
+    ],
+  },
+
+  legs: {
+    title: "Legs",
+    subtitle: "Lower Body • Beginner",
+    exercises: [
+      ["Bodyweight Squats", "15 reps", "3 rounds"],
+      ["Reverse Lunges", "10 each leg", "3 rounds"],
+      ["Bulgarian Split Squats", "8 each leg", "3 rounds"],
+      ["Calf Raises", "20 reps", "3 rounds"],
+      ["Jump Squats", "10 reps", "3 rounds"],
+      ["Wall Sit", "30 sec", "3 rounds"],
+    ],
+  },
+
+  back: {
+    title: "Back",
+    subtitle: "Back • Home • Beginner",
+    exercises: [
+      ["Superman", "12 reps", "3 rounds"],
+      ["Reverse Snow Angels", "12 reps", "3 rounds"],
+      ["Backpack Rows", "12 reps", "3 rounds"],
+      ["Bird Dog", "10 each side", "3 rounds"],
+      ["Prone Y Raises", "10 reps", "3 rounds"],
+    ],
+  },
+
+  shoulders: {
+    title: "Shoulders",
+    subtitle: "Shoulders • Home",
+    exercises: [
+      ["Pike Push-ups", "8 reps", "3 rounds"],
+      ["Shoulder Taps", "20 reps", "3 rounds"],
+      ["Lateral Raises", "12 reps", "3 rounds"],
+      ["Front Raises", "12 reps", "3 rounds"],
+      ["Overhead Press", "12 reps", "3 rounds"],
+    ],
+  },
+
+  glutes: {
+    title: "Glutes",
+    subtitle: "Glutes & Hips • Home",
+    exercises: [
+      ["Glute Bridges", "15 reps", "3 rounds"],
+      ["Hip Thrusts", "12 reps", "3 rounds"],
+      ["Donkey Kicks", "12 each leg", "3 rounds"],
+      ["Fire Hydrants", "12 each side", "3 rounds"],
+      ["Bulgarian Split Squats", "8 each leg", "3 rounds"],
+    ],
+  },
+};
+
+const plan = [
+  ["Day 1", "Full Body", "full-body"],
+  ["Day 2", "Abs & Core", "abs"],
+  ["Day 3", "Chest", "chest"],
+  ["Day 4", "Rest", null],
+  ["Day 5", "Legs", "legs"],
+  ["Day 6", "Arms", "arms"],
+  ["Day 7", "Rest", null],
+];
+
+function App() {
   const [user, setUser] = useState(auth.currentUser);
-  const [isLogin, setIsLogin] = useState(true);
+  const [authMode, setAuthMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [activePage, setActivePage] = useState("home");
+  const [authError, setAuthError] = useState("");
 
-  const handleAuth = async (e) => {
+  const [page, setPage] = useState("home");
+  const [selectedArea, setSelectedArea] = useState(null);
+  const [session, setSession] = useState(null);
+  const [completed, setCompleted] = useState([]);
+  const [completedWorkouts, setCompletedWorkouts] = useState([]);
+
+  const totalExercises = useMemo(
+    () =>
+      Object.values(workouts).reduce(
+        (number, workout) => number + workout.exercises.length,
+        0
+      ),
+    []
+  );
+
+  async function handleAuth(e) {
     e.preventDefault();
-    setError("");
-    setLoading(true);
+    setAuthError("");
 
     try {
-      if (isLogin) {
+      if (authMode === "login") {
         const result = await signInWithEmailAndPassword(
           auth,
           email,
           password
         );
+
         setUser(result.user);
       } else {
         const result = await createUserWithEmailAndPassword(
@@ -35,38 +170,91 @@ export default function App() {
           email,
           password
         );
+
         setUser(result.user);
       }
     } catch (err) {
-      setError(err.message);
+      setAuthError(err.message.replace("Firebase: ", ""));
     }
+  }
 
-    setLoading(false);
-  };
-
-  const handleLogout = async () => {
+  async function logout() {
     await signOut(auth);
     setUser(null);
-  };
+    setPage("home");
+  }
+
+  function openWorkout(id) {
+    setSelectedArea(id);
+    setPage("workout");
+  }
+
+  function startWorkout(id) {
+    setSession({
+      id,
+      index: 0,
+    });
+
+    setCompleted([]);
+    setSelectedArea(id);
+    setPage("session");
+  }
+
+  function completeExercise() {
+    if (!session) return;
+
+    const workout = workouts[session.id];
+
+    const next = [...completed, session.index];
+
+    if (session.index >= workout.exercises.length - 1) {
+      setCompletedWorkouts((old) => [
+        ...old,
+        {
+          id: session.id,
+          date: new Date().toISOString(),
+        },
+      ]);
+
+      setCompleted(next);
+      setSession(null);
+      setPage("progress");
+
+      return;
+    }
+
+    setCompleted(next);
+
+    setSession({
+      ...session,
+      index: session.index + 1,
+    });
+  }
 
   if (!user) {
     return (
-      <div className="auth-page">
+      <div className="app-shell auth-shell">
+        <div className="bg-overlay" />
+
         <div className="auth-card">
-          <div className="logo-circle">💪</div>
+          <div className="logo-mark">HF</div>
 
-          <h1>Hassan Fitness Hub</h1>
+          <p className="eyebrow">HASSAN FITNESS HUB</p>
 
-          <p>
-            Your free fitness journey starts here.
+          <h1>
+            Build your body.
             <br />
-            Train. Eat. Progress. Repeat.
+            Build your discipline.
+          </h1>
+
+          <p className="muted">
+            Free workouts, plans and progress tracking.
           </p>
 
           <form onSubmit={handleAuth}>
             <input
               type="email"
-              placeholder="Email address"
+              placeholder="Gmail / Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -80,26 +268,31 @@ export default function App() {
               required
             />
 
-            <button type="submit" disabled={loading}>
-              {loading
-                ? "Please wait..."
-                : isLogin
-                ? "Login"
-                : "Create Free Account"}
+            {authError && (
+              <div className="error-box">
+                {authError}
+              </div>
+            )}
+
+            <button className="primary-btn" type="submit">
+              {authMode === "login"
+                ? "LOGIN"
+                : "CREATE ACCOUNT"}
             </button>
           </form>
 
-          {error && <p className="error">{error}</p>}
-
           <button
-            className="switch-button"
-            onClick={() => {
-              setIsLogin(!isLogin);
-              setError("");
-            }}
+            className="text-btn"
+            onClick={() =>
+              setAuthMode(
+                authMode === "login"
+                  ? "signup"
+                  : "login"
+              )
+            }
           >
-            {isLogin
-              ? "Don't have an account? Sign up"
+            {authMode === "login"
+              ? "New here? Create an account"
               : "Already have an account? Login"}
           </button>
         </div>
@@ -107,269 +300,503 @@ export default function App() {
     );
   }
 
-  const pageContent = {
-    home: (
-      <>
-        <section className="hero">
-          <div>
-            <span className="hero-tag">🔥 KEEP MOVING</span>
-            <h2>Build a stronger you.</h2>
-            <p>
-              Stay consistent, follow your goals and become
-              the best version of yourself.
-            </p>
+  const selectedWorkout = selectedArea
+    ? workouts[selectedArea]
+    : null;
 
-            <button
-              className="hero-button"
-              onClick={() => setActivePage("workouts")}
-            >
-              Start Workout →
-            </button>
+  return (
+    <div className="app-shell">
+      <div className="bg-overlay" />
+
+      <header className="topbar">
+        <div>
+          <div className="brand">
+            HASSAN <span>FITNESS</span>
           </div>
 
-          <div className="hero-emoji">🏋️</div>
-        </section>
-
-        <section className="stats">
-          <div className="stat-card">
-            <span>🔥</span>
-            <strong>7</strong>
-            <small>Day Streak</small>
+          <div className="tiny">
+            YOUR BODY. YOUR DISCIPLINE.
           </div>
+        </div>
 
-          <div className="stat-card">
-            <span>🏋️</span>
-            <strong>12</strong>
-            <small>Workouts</small>
-          </div>
-
-          <div className="stat-card">
-            <span>💧</span>
-            <strong>6</strong>
-            <small>Glasses Today</small>
-          </div>
-
-          <div className="stat-card">
-            <span>🎯</span>
-            <strong>80%</strong>
-            <small>Daily Goal</small>
-          </div>
-        </section>
-
-        <h2 className="section-title">Your Fitness Hub</h2>
-
-        <section className="cards">
-          <div className="card">
-            <div className="card-icon">🏋️</div>
-            <h3>Workouts</h3>
-            <p>
-              Find simple workouts for strength, fitness and
-              weight management.
-            </p>
-            <button onClick={() => setActivePage("workouts")}>
-              View Workouts
-            </button>
-          </div>
-
-          <div className="card">
-            <div className="card-icon">🥗</div>
-            <h3>Nutrition</h3>
-            <p>
-              Learn healthy eating habits and make better
-              food choices.
-            </p>
-            <button onClick={() => setActivePage("nutrition")}>
-              Nutrition Guide
-            </button>
-          </div>
-
-          <div className="card">
-            <div className="card-icon">📊</div>
-            <h3>My Progress</h3>
-            <p>
-              Keep track of your workouts and see how far
-              you've come.
-            </p>
-            <button onClick={() => setActivePage("progress")}>
-              View Progress
-            </button>
-          </div>
-
-          <div className="card">
-            <div className="card-icon">🔥</div>
-            <h3>Daily Goal</h3>
-            <p>
-              Complete today's activities and stay consistent
-              with your fitness journey.
-            </p>
-            <button onClick={() => setActivePage("goals")}>
-              Today's Goal
-            </button>
-          </div>
-
-          <div className="card">
-            <div className="card-icon">👤</div>
-            <h3>My Profile</h3>
-            <p>
-              View your account information and fitness
-              profile.
-            </p>
-            <button onClick={() => setActivePage("profile")}>
-              My Profile
-            </button>
-          </div>
-
-          <div className="card">
-            <div className="card-icon">❤️</div>
-            <h3>Health Tips</h3>
-            <p>
-              Discover simple tips for a healthier lifestyle.
-            </p>
-            <button onClick={() => setActivePage("tips")}>
-              View Tips
-            </button>
-          </div>
-        </section>
-      </>
-    ),
-
-    workouts: (
-      <section className="page-section">
-        <button className="back-button" onClick={() => setActivePage("home")}>
-          ← Back to Dashboard
+        <button
+          className="logout-btn"
+          onClick={logout}
+        >
+          Logout
         </button>
+      </header>
 
-        <h2>🏋️ Workouts</h2>
-        <p className="page-intro">
-          Choose a workout and get moving.
-        </p>
+      <main className="content">
 
-        <div className="workout-grid">
-          <div className="workout-card">
-            <span>💪</span>
-            <h3>Full Body Workout</h3>
-            <p>20 minutes • Beginner</p>
-            <button>Start Workout</button>
-          </div>
+        {page === "home" && (
+          <>
+            <section className="hero-card">
+              <div>
+                <p className="eyebrow">
+                  WELCOME BACK
+                </p>
 
-          <div className="workout-card">
-            <span>🔥</span>
-            <h3>Fat Burn Workout</h3>
-            <p>25 minutes • Intermediate</p>
-            <button>Start Workout</button>
-          </div>
+                <h1>
+                  Train smarter.
+                  <br />
+                  <span>Get stronger.</span>
+                </h1>
 
-          <div className="workout-card">
-            <span>🦵</span>
-            <h3>Leg Workout</h3>
-            <p>20 minutes • Beginner</p>
-            <button>Start Workout</button>
-          </div>
+                <p>
+                  Choose a focus area and start your
+                  workout today.
+                </p>
 
-          <div className="workout-card">
-            <span>🏃</span>
-            <h3>Cardio Workout</h3>
-            <p>30 minutes • Intermediate</p>
-            <button>Start Workout</button>
-          </div>
-        </div>
-      </section>
-    ),
+                <button
+                  className="primary-btn"
+                  onClick={() =>
+                    setPage("workouts")
+                  }
+                >
+                  EXPLORE WORKOUTS →
+                </button>
+              </div>
 
-    nutrition: (
-      <section className="page-section">
-        <button className="back-button" onClick={() => setActivePage("home")}>
-          ← Back to Dashboard
-        </button>
+              <div className="hero-badge">
+                🔥
+                <br />
+                <strong>FREE</strong>
+              </div>
+            </section>
 
-        <h2>🥗 Nutrition Guide</h2>
-        <p className="page-intro">
-          Simple nutrition habits to support your fitness.
-        </p>
+            <section className="stats-row">
+              <div>
+                <strong>
+                  {completedWorkouts.length}
+                </strong>
 
-        <div className="tip-grid">
-          <div className="info-card">
-            <span>🥚</span>
-            <h3>Eat Protein</h3>
-            <p>
-              Include protein-rich foods such as eggs, beans,
-              fish, chicken and other healthy sources.
+                <span>Workouts</span>
+              </div>
+
+              <div>
+                <strong>
+                  {completed.length}
+                </strong>
+
+                <span>Exercises</span>
+              </div>
+
+              <div>
+                <strong>
+                  {completedWorkouts.length
+                    ? "1"
+                    : "0"}
+                </strong>
+
+                <span>Streak</span>
+              </div>
+            </section>
+
+            <section className="section-heading">
+              <div>
+                <p className="eyebrow">
+                  START HERE
+                </p>
+
+                <h2>
+                  Choose your focus area
+                </h2>
+              </div>
+            </section>
+
+            <BodyGrid
+              onOpen={openWorkout}
+            />
+          </>
+        )}
+
+        {page === "workouts" && (
+          <>
+            <section className="page-title">
+              <p className="eyebrow">
+                WORKOUT LIBRARY
+              </p>
+
+              <h1>
+                Hit your focus areas
+              </h1>
+
+              <p>
+                Choose a muscle group and get a
+                ready-made workout.
+              </p>
+            </section>
+
+            <BodyGrid
+              onOpen={openWorkout}
+            />
+
+            <PlanPreview
+              onStart={startWorkout}
+            />
+          </>
+        )}
+
+        {page === "workout" &&
+          selectedWorkout && (
+            <>
+              <button
+                className="back-btn"
+                onClick={() =>
+                  setPage("workouts")
+                }
+              >
+                ← Back
+              </button>
+
+              <section className="workout-head">
+                <p className="eyebrow">
+                  WORKOUT PLAN
+                </p>
+
+                <h1>
+                  {selectedWorkout.title}
+                </h1>
+
+                <p>
+                  {selectedWorkout.subtitle}
+                </p>
+
+                <button
+                  className="primary-btn"
+                  onClick={() =>
+                    startWorkout(
+                      selectedArea
+                    )
+                  }
+                >
+                  ▶ START WORKOUT
+                </button>
+              </section>
+
+              <div className="exercise-list">
+                {selectedWorkout.exercises.map(
+                  (exercise, index) => (
+                    <div
+                      className="exercise-item"
+                      key={exercise[0]}
+                    >
+                      <div className="exercise-number">
+                        {String(index + 1).padStart(
+                          2,
+                          "0"
+                        )}
+                      </div>
+
+                      <div className="exercise-info">
+                        <strong>
+                          {exercise[0]}
+                        </strong>
+
+                        <span>
+                          {exercise[1]} •{" "}
+                          {exercise[2]}
+                        </span>
+                      </div>
+
+                      <span className="exercise-check">
+                        ○
+                      </span>
+                    </div>
+                  )
+                )}
+              </div>
+
+              <section className="pdf-box">
+                <div className="pdf-icon">
+                  📄
+                </div>
+
+                <div>
+                  <p className="eyebrow">
+                    WORKOUT GUIDE
+                  </p>
+
+                  <h3>
+                    PDF guide coming here
+                  </h3>
+
+                  <p>
+                    When you upload the PDF, we
+                    will connect it to this workout.
+                  </p>
+                </div>
+              </section>
+            </>
+          )}
+
+        {page === "session" &&
+          session && (
+            <section className="session-card">
+              <button
+                className="back-btn"
+                onClick={() => {
+                  setSession(null);
+                  setPage("workout");
+                }}
+              >
+                ← Exit workout
+              </button>
+
+              <p className="eyebrow">
+                EXERCISE {session.index + 1} OF{" "}
+                {workouts[session.id].exercises.length}
+              </p>
+
+              <div className="session-count">
+                {session.index + 1}
+              </div>
+
+              <h1>
+                {
+                  workouts[session.id]
+                    .exercises[session.index][0]
+                }
+              </h1>
+
+              <div className="session-target">
+                {
+                  workouts[session.id]
+                    .exercises[session.index][1]
+                }
+              </div>
+
+              <p className="muted">
+                Complete this exercise, then tap
+                the button below.
+              </p>
+
+              <button
+                className="primary-btn large-btn"
+                onClick={completeExercise}
+              >
+                {session.index ===
+                workouts[session.id].exercises
+                  .length -
+                  1
+                  ? "✓ COMPLETE WORKOUT"
+                  : "✓ COMPLETE & NEXT"}
+              </button>
+            </section>
+          )}
+
+        {page === "progress" && (
+          <>
+            <section className="page-title">
+              <p className="eyebrow">
+                YOUR REAL ACTIVITY
+              </p>
+
+              <h1>
+                Progress
+              </h1>
+
+              <p>
+                For now this demo counts only
+                workouts you actually complete inside
+                the app. Firebase saving will be added
+                next.
+              </p>
+            </section>
+
+            <div className="progress-grid">
+              <div className="progress-card">
+                <strong>
+                  {completedWorkouts.length}
+                </strong>
+
+                <span>
+                  Completed workouts
+                </span>
+              </div>
+
+              <div className="progress-card">
+                <strong>
+                  {completed.length}
+                </strong>
+
+                <span>
+                  Exercises this session
+                </span>
+              </div>
+
+              <div className="progress-card">
+                <strong>
+                  {Math.round(
+                    (completedWorkouts.length /
+                      28) *
+                      100
+                  )}
+                  %
+                </strong>
+
+                <span>
+                  28-day plan
+                </span>
+              </div>
+
+              <div className="progress-card">
+                <strong>
+                  {totalExercises}
+                </strong>
+
+                <span>
+                  Exercises available
+                </span>
+              </div>
+            </div>
+
+            <div className="plan-box">
+              <h2>
+                28-Day Fitness Plan
+              </h2>
+
+              <p>
+                Week 1 • Start building consistency
+              </p>
+
+              {plan.map(
+                ([day, name, id]) => (
+                  <div
+                    className="plan-row"
+                    key={day}
+                  >
+                    <strong>
+                      {day}
+                    </strong>
+
+                    <span>
+                      {name}
+                    </span>
+
+                    {id ? (
+                      <button
+                        className="mini-btn"
+                        onClick={() =>
+                          startWorkout(id)
+                        }
+                      >
+                        Start
+                      </button>
+                    ) : (
+                      <span className="rest">
+                        REST
+                      </span>
+                    )}
+                  </div>
+                )
+              )}
+            </div>
+          </>
+        )}
+
+        {page === "profile" && (
+          <section className="page-title">
+            <p className="eyebrow">
+              ACCOUNT
             </p>
-          </div>
 
-          <div className="info-card">
-            <span>🥦</span>
-            <h3>Eat Vegetables</h3>
-            <p>
-              Add different vegetables to your meals for
-              important nutrients and fibre.
-            </p>
-          </div>
+            <h1>
+              Your Profile
+            </h1>
 
-          <div className="info-card">
-            <span>💧</span>
-            <h3>Drink Water</h3>
-            <p>
-              Keep yourself hydrated throughout the day,
-              especially when exercising.
-            </p>
-          </div>
+            <div className="profile-card">
+              <div className="avatar">
+                {(user.email || "U")[0].toUpperCase()}
+              </div>
 
-          <div className="info-card">
-            <span>🍎</span>
-            <h3>Choose Whole Foods</h3>
-            <p>
-              Build meals around nutritious foods and limit
-              highly processed choices.
-            </p>
-          </div>
-        </div>
-      </section>
-    ),
+              <h2>
+                {user.email}
+              </h2>
 
-    progress: (
-      <section className="page-section">
-        <button className="back-button" onClick={() => setActivePage("home")}>
-          ← Back to Dashboard
-        </button>
+              <p>
+                Registration will be upgraded
+                with full name, age, username and
+                phone number next.
+              </p>
+            </div>
+          </section>
+        )}
 
-        <h2>📊 My Progress</h2>
-        <p className="page-intro">
-          Keep showing up and track your consistency.
-        </p>
+      </main>
 
-        <div className="progress-box">
-          <h3>This Week</h3>
+      <nav className="bottom-nav">
+        <NavButton
+          active={page === "home"}
+          icon="⌂"
+          label="Home"
+          onClick={() => setPage("home")}
+        />
 
-          <div className="progress-bar">
-            <div className="progress-fill"></div>
-          </div>
+        <NavButton
+          active={[
+            "workouts",
+            "workout",
+            "session",
+          ].includes(page)}
+          icon="🏋"
+          label="Workouts"
+          onClick={() =>
+            setPage("workouts")
+          }
+        />
 
-          <strong>80%</strong>
-          <p>Daily goal completion</p>
-        </div>
+        <NavButton
+          active={page === "progress"}
+          icon="📈"
+          label="Progress"
+          onClick={() =>
+            setPage("progress")
+          }
+        />
 
-        <div className="stats">
-          <div className="stat-card">
-            <span>🏋️</span>
-            <strong>12</strong>
-            <small>Total Workouts</small>
-          </div>
+        <NavButton
+          active={page === "profile"}
+          icon="👤"
+          label="Profile"
+          onClick={() =>
+            setPage("profile")
+          }
+        />
+      </nav>
+    </div>
+  );
+}
 
-          <div className="stat-card">
-            <span>🔥</span>
-            <strong>7</strong>
-            <small>Current Streak</small>
-          </div>
+function BodyGrid({ onOpen }) {
+  return (
+    <div className="body-grid">
+      {bodyAreas.map(
+        (area, index) => (
+          <button
+            className={`body-card ${
+              index === 0
+                ? "featured"
+                : ""
+            }`}
+            key={area.id}
+            onClick={() =>
+              onOpen(area.id)
+            }
+          >
+            <div className="body-art">
+              {area.icon}
+            </div>
 
-          <div className="stat-card">
-            <span>⏱️</span>
-            <strong>240</strong>
-            <small>Minutes Trained</small>
-          </div>
-        </div>
-      </section>
-    ),
+            <div className="body-card-text">
+              <strong>
+                {area.name}
+              </strong>
+
+              <span>
+                {area.desc}
+          ),
 
     goals: (
       <section className="page-section">
