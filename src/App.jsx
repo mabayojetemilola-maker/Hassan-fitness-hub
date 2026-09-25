@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -150,6 +150,25 @@ const plan = [
   ["Day 28", "Final Full Body Challenge", "full-body"],
 ];
 
+const QUICK_AI_PROMPTS = [
+  "Give me a 20-minute home workout with no equipment.",
+  "What should I eat before and after a workout?",
+  "How can I build muscle at home?",
+  "How can I lose belly fat safely?",
+];
+
+function getTimerSeconds(target) {
+  const match = String(target || "").match(/(\d+)\s*(?:sec|seconds)/i);
+  return match ? Number(match[1]) : 30;
+}
+
+function formatTime(totalSeconds) {
+  const safe = Math.max(0, Number(totalSeconds) || 0);
+  const minutes = Math.floor(safe / 60);
+  const seconds = safe % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
 function App() {
   const [user, setUser] = useState(auth.currentUser);
   const [authMode, setAuthMode] = useState("login");
@@ -163,6 +182,23 @@ function App() {
   const [completed, setCompleted] = useState([]);
   const [completedWorkouts, setCompletedWorkouts] = useState([]);
 
+  const [timerSeconds, setTimerSeconds] = useState(30);
+  const [timerTotalSeconds, setTimerTotalSeconds] = useState(30);
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [timerFinished, setTimerFinished] = useState(false);
+  const [customTimer, setCustomTimer] = useState(30);
+
+  const [aiMessages, setAiMessages] = useState([
+    {
+      role: "assistant",
+      content:
+        "Hi! I'm your Hassan Fitness AI Coach. Ask me about workouts, exercises, nutrition, recovery, fat loss, muscle building, stretching, or fitness planning.",
+    },
+  ]);
+  const [aiInput, setAiInput] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+
   const totalExercises = useMemo(
     () =>
       Object.values(workouts).reduce(
@@ -171,6 +207,52 @@ function App() {
       ),
     []
   );
+
+  function resetTimer(seconds = 30) {
+    const safe = Math.max(5, Math.round(seconds));
+    setCustomTimer(safe);
+    setTimerSeconds(safe);
+    setTimerTotalSeconds(safe);
+    setTimerRunning(false);
+    setTimerFinished(false);
+  }
+
+  useEffect(() => {
+    if (!timerRunning) return;
+
+    const interval = window.setInterval(() => {
+      setTimerSeconds((current) => {
+        if (current <= 1) {
+          window.clearInterval(interval);
+          setTimerRunning(false);
+          setTimerFinished(true);
+
+          try {
+            if (typeof navigator !== "undefined" && navigator.vibrate) {
+              navigator.vibrate([250, 120, 250]);
+            }
+          } catch {}
+
+          return 0;
+        }
+
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [timerRunning]);
+
+  useEffect(() => {
+    if (!session) return;
+
+    const exercise = workouts[session.id]?.exercises[session.index];
+    if (!exercise) return;
+
+    const seconds = getTimerSeconds(exercise[1]);
+    resetTimer(seconds);
+    setTimerRunning(true);
+  }, [session]);
 
   async function handleAuth(e) {
     e.preventDefault();
@@ -221,11 +303,70 @@ function App() {
       setCompleted(next);
       setSession(null);
       setPage("progress");
+      resetTimer(30);
       return;
     }
 
     setCompleted(next);
     setSession({ ...session, index: session.index + 1 });
+  }
+
+  function applyPreset(seconds) {
+    setCustomTimer(seconds);
+    setTimerSeconds(seconds);
+    setTimerFinished(false);
+  }
+
+  function toggleTimer() {
+    if (timerSeconds <= 0) {
+      setTimerSeconds(customTimer);
+      setTimerFinished(false);
+    }
+    setTimerRunning((running) => !running);
+  }
+
+  function resetCurrentTimer() {
+    resetTimer(customTimer);
+  }
+
+  async function sendAiMessage(text = aiInput) {
+    const message = String(text || "").trim();
+    if (!message || aiLoading) return;
+
+    const nextMessages = [...aiMessages, { role: "user", content: message }];
+    setAiMessages(nextMessages);
+    setAiInput("");
+    setAiError("");
+    setAiLoading(true);
+
+    try {
+      const response = await fetch("/api/fitness-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: nextMessages.slice(-12),
+          userEmail: user?.email || "",
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || "The AI coach could not respond right now.");
+      }
+
+      setAiMessages((old) => [
+        ...old,
+        {
+          role: "assistant",
+          content: data.answer || "I couldn't generate an answer.",
+        },
+      ]);
+    } catch (error) {
+      setAiError(error.message || "Something went wrong.");
+    } finally {
+      setAiLoading(false);
+    }
   }
 
   if (!user) {
@@ -279,6 +420,9 @@ function App() {
   }
 
   const selectedWorkout = selectedArea ? workouts[selectedArea] : null;
+  const currentExercise = session
+    ? workouts[session.id]?.exercises[session.index]
+    : null;
 
   return (
     <div className="app-shell">
@@ -307,13 +451,15 @@ function App() {
                   <br />
                   <span>Get stronger.</span>
                 </h1>
-                <p>Choose a focus area and start your workout today.</p>
-                <button
-                  className="primary-btn"
-                  onClick={() => setPage("workouts")}
-                >
-                  EXPLORE WORKOUTS →
-                </button>
+                <p>Choose a focus area, start a timed workout, or ask the AI coach.</p>
+                <div className="hero-actions">
+                  <button className="primary-btn" onClick={() => setPage("workouts")}>
+                    EXPLORE WORKOUTS →
+                  </button>
+                  <button className="secondary-btn" onClick={() => setPage("ai")}>
+                    🤖 ASK AI COACH
+                  </button>
+                </div>
               </div>
               <div className="hero-badge">
                 🔥
@@ -345,6 +491,17 @@ function App() {
             </section>
 
             <BodyGrid onOpen={openWorkout} />
+
+            <section className="ai-preview">
+              <div>
+                <p className="eyebrow">AI FITNESS COACH</p>
+                <h2>Have a fitness question?</h2>
+                <p className="muted">Ask your AI coach about training, food, recovery and more.</p>
+              </div>
+              <button className="secondary-btn" onClick={() => setPage("ai")}>
+                OPEN AI COACH →
+              </button>
+            </section>
           </>
         )}
 
@@ -375,7 +532,7 @@ function App() {
                 className="primary-btn"
                 onClick={() => startWorkout(selectedArea)}
               >
-                ▶ START WORKOUT
+                ▶ START WORKOUT TIMER
               </button>
             </section>
 
@@ -409,11 +566,12 @@ function App() {
           </>
         )}
 
-        {page === "session" && session && (
+        {page === "session" && session && currentExercise && (
           <section className="session-card">
             <button
               className="back-btn"
               onClick={() => {
+                setTimerRunning(false);
                 setSession(null);
                 setPage("workout");
               }}
@@ -426,17 +584,48 @@ function App() {
               {workouts[session.id].exercises.length}
             </p>
 
-            <div className="session-count">{session.index + 1}</div>
+            <div
+              className={`timer-ring ${timerRunning ? "running" : ""} ${timerFinished ? "finished" : ""}`}
+              style={{ "--progress": `${Math.max(0, Math.min(1, timerSeconds / Math.max(1, timerTotalSeconds)))}` }}
+            >
+              <div className="timer-inner">
+                <strong>{formatTime(timerSeconds)}</strong>
+                <span>{timerFinished ? "TIME'S UP" : timerRunning ? "WORK" : "PAUSED"}</span>
+              </div>
+            </div>
 
-            <h1>{workouts[session.id].exercises[session.index][0]}</h1>
+            <h1>{currentExercise[0]}</h1>
 
             <div className="session-target">
-              {workouts[session.id].exercises[session.index][1]}
+              Target: {currentExercise[1]}
             </div>
 
             <p className="muted">
-              Complete this exercise, then tap the button below.
+              The workout uses a real countdown timer. For rep-based exercises,
+              the default work timer is 30 seconds.
             </p>
+
+            <div className="timer-controls">
+              <button className="secondary-btn" onClick={toggleTimer}>
+                {timerRunning ? "⏸ PAUSE" : timerSeconds <= 0 ? "▶ START" : "▶ RESUME"}
+              </button>
+              <button className="ghost-btn" onClick={resetCurrentTimer}>
+                ↻ RESET
+              </button>
+            </div>
+
+            <div className="preset-row">
+              <span>Quick timer:</span>
+              {[30, 45, 60, 90].map((seconds) => (
+                <button
+                  key={seconds}
+                  className={`preset-btn ${customTimer === seconds ? "selected" : ""}`}
+                  onClick={() => applyPreset(seconds)}
+                >
+                  {seconds}s
+                </button>
+              ))}
+            </div>
 
             <button className="primary-btn large-btn" onClick={completeExercise}>
               {session.index === workouts[session.id].exercises.length - 1
@@ -446,154 +635,13 @@ function App() {
           </section>
         )}
 
-        {page === "progress" && (
-          <>
-            <section className="page-title">
-              <p className="eyebrow">YOUR REAL ACTIVITY</p>
-              <h1>Progress</h1>
-              <p>
-                Only workouts you actually complete are counted. No fake
-                streaks.
-              </p>
-            </section>
-
-            <div className="progress-grid">
-              <div className="progress-card">
-                <strong>{completedWorkouts.length}</strong>
-                <span>Completed workouts</span>
-              </div>
-              <div className="progress-card">
-                <strong>{completed.length}</strong>
-                <span>Exercises this session</span>
-              </div>
-              <div className="progress-card">
-                <strong>
-                  {Math.round((completedWorkouts.length / 28) * 100)}%
-                </strong>
-                <span>28-day plan</span>
-              </div>
-              <div className="progress-card">
-                <strong>{totalExercises}</strong>
-                <span>Exercises available</span>
-              </div>
+        {page === "ai" && (
+          <section className="ai-page">
+            <div className="page-title">
+              <p className="eyebrow">HASSAN FITNESS AI</p>
+              <h1>AI Fitness Coach</h1>
+              <p>Ask questions about workouts, exercises, nutrition, recovery and fitness planning.</p>
             </div>
 
-            <PlanPreview onStart={startWorkout} />
-          </>
-        )}
-
-        {page === "profile" && (
-          <section className="page-title">
-            <p className="eyebrow">ACCOUNT</p>
-            <h1>Your Profile</h1>
-            <div className="profile-card">
-              <div className="avatar">
-                {(user.email || "U")[0].toUpperCase()}
-              </div>
-              <h2>{user.email}</h2>
-              <p>
-                Registration will be upgraded with full name, age, username and
-                phone number next.
-              </p>
-            </div>
-          </section>
-        )}
-      </main>
-
-      <nav className="bottom-nav">
-        <NavButton
-          active={page === "home"}
-          icon="⌂"
-          label="Home"
-          onClick={() => setPage("home")}
-        />
-        <NavButton
-          active={["workouts", "workout", "session"].includes(page)}
-          icon="🏋"
-          label="Workouts"
-          onClick={() => setPage("workouts")}
-        />
-        <NavButton
-          active={page === "progress"}
-          icon="📈"
-          label="Progress"
-          onClick={() => setPage("progress")}
-        />
-        <NavButton
-          active={page === "profile"}
-          icon="👤"
-          label="Profile"
-          onClick={() => setPage("profile")}
-        />
-      </nav>
-    </div>
-  );
-}
-
-function BodyGrid({ onOpen }) {
-  return (
-    <div className="body-grid">
-      {bodyAreas.map((area, index) => (
-        <button
-          className={`body-card ${index === 0 ? "featured" : ""}`}
-          key={area.id}
-          onClick={() => onOpen(area.id)}
-        >
-          <div className="body-art">{area.icon}</div>
-          <div className="body-card-text">
-            <strong>{area.name}</strong>
-            <span>{area.desc}</span>
-          </div>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function PlanPreview({ onStart }) {
-  const weeks = [
-    { title: "WEEK 1", days: plan.slice(0, 7) },
-    { title: "WEEK 2", days: plan.slice(7, 14) },
-    { title: "WEEK 3", days: plan.slice(14, 21) },
-    { title: "WEEK 4", days: plan.slice(21, 28) },
-  ];
-
-  return (
-    <div className="plan-box">
-      <h2>28-Day Fitness Plan</h2>
-      <p>All 28 days • Real progress only</p>
-
-      {weeks.map((week) => (
-        <div key={week.title} style={{ marginBottom: "24px" }}>
-          <h3 style={{ margin: "16px 0 8px", color: "#ff6b35" }}>
-            {week.title}
-          </h3>
-          {week.days.map(([day, name, id]) => (
-            <div className="plan-row" key={day}>
-              <strong>{day}</strong>
-              <span>{name}</span>
-              {id ? (
-                <button className="mini-btn" onClick={() => onStart(id)}>
-                  Start
-                </button>
-              ) : (
-                <span className="rest">REST</span>
-              )}
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function NavButton({ active, icon, label, onClick }) {
-  return (
-    <button className={active ? "active" : ""} onClick={onClick}>
-      <span>{icon}</span>
-      <small>{label}</small>
-    </button>
-  );
-}
-
-export default App;
+            <div className="quick-prompts">
+              {QUICK_AI_PRO
